@@ -15,8 +15,7 @@ public class MazeController : MonoBehaviour {
     private bool initialTrigger; // bool to see if the maze generation has started
 
     private int setNum; // keeps track of # of sets created
-    private int[] cellSet;  // indicates set of the cell
-    private Cell[] cellWalls; // indicates the walls in one cell
+    private Cell[] cells; // stores cell info like set number, eastWall, and southWall
     private GameObject[] eastWalls; // holds the east Walls that get created
 
     // Initialize everything
@@ -26,15 +25,10 @@ public class MazeController : MonoBehaviour {
         length = 1;
         initialTrigger = false;
 
-        cellSet = new int[width];
-        cellWalls = new Cell[width];
+        cells = new Cell[width];
         for (int i = 0; i < width; i++)
         {
-            cellWalls[i] = new Cell
-            {
-                downWall = true 
-            };
-            cellSet[i] = -1;
+            cells[i] = new Cell();
         }
         eastWalls = new GameObject[width];
         for(int i = 0; i < width; i++)
@@ -45,7 +39,7 @@ public class MazeController : MonoBehaviour {
 
     private void OnTriggerEnter(Collider other)
     {
-        // Only create a Row the first time the player enters the maze Trigger
+        // Only create the first Row the first time the player enters the maze Trigger
         if (!initialTrigger) {
             if (other.gameObject.CompareTag("Player"))
             {
@@ -55,29 +49,30 @@ public class MazeController : MonoBehaviour {
         }
     }
 
+    // Eller's Algorithm:
+    // http://www.neocomputer.org/projects/eller.html
     public void createRow()
     {
         // if a cell has a bottom wall, remove it from its set
         for (int i = 0; i < width; i++)
         {
-            if (cellWalls[i].downWall)
+            if (cells[i].southWall)
             {      
-                cellSet[i] = -1;
+                cells[i].set = -1;
             }
         }
 
         for (int i = 0; i < width; i++)
         {
             // make all independent cells their own set
-            if (cellSet[i] == -1)
+            if (cells[i].set == -1)
             {
-                cellSet[i] = setNum++;  
+                cells[i].set = setNum++;  
             }
 
             // initialize arrays
-            cellWalls[i] = new Cell();   
-            cellWalls[i].downWall = false;
-            cellWalls[i].rightWall = false;
+            cells[i].southWall = false;
+            cells[i].eastWall = false;
             eastWalls[i] = null;
         }
 
@@ -85,13 +80,13 @@ public class MazeController : MonoBehaviour {
         for (int i = 0; i < width - 1; i++)
         {
             // if two cells are members of same set, we MUST add a wall
-            if (cellSet[i] == cellSet[i + 1] || Random.value < bias)
+            if (cells[i].set == cells[i + 1].set || Random.value < bias)
             {   
-                cellWalls[i].rightWall = true;
+                cells[i].eastWall = true;
             }
             else
             {
-                unionSets(cellSet, i, i + 1);
+                unionSets(cells, i, i + 1);
             }
         }
 
@@ -100,21 +95,21 @@ public class MazeController : MonoBehaviour {
         Dictionary<int, int> numPassages = new Dictionary<int, int>(); 
         for (int i = 0; i < width; i++)
         {
-            if (!numPassages.ContainsKey(cellSet[i]))
+            if (!numPassages.ContainsKey(cells[i].set))
             {
-                numPassages[cellSet[i]] = 1;
+                numPassages[cells[i].set] = 1;
             }
             else
             {
-                numPassages[cellSet[i]] = numPassages[cellSet[i]] + 1;
+                numPassages[cells[i].set] = numPassages[cells[i].set] + 1;
             }
         }
         for (int i = 0; i < width; i++)
         {
-            if (numPassages[cellSet[i]] > 1 && Random.value > bias)
+            if (numPassages[cells[i].set] > 1 && Random.value > bias)
             {
-                cellWalls[i].downWall = true;
-                numPassages[cellSet[i]] = numPassages[cellSet[i]] - 1;
+                cells[i].southWall = true;
+                numPassages[cells[i].set] = numPassages[cells[i].set] - 1;
             }
         }
 
@@ -134,7 +129,7 @@ public class MazeController : MonoBehaviour {
                          spawnReference.GetComponent<Transform>().rotation);
 
             // Construct the inner walls
-            if (cellWalls[i].rightWall)
+            if (cells[i].eastWall)
             {
                 var eastWall = Instantiate(
                                              east,
@@ -146,15 +141,15 @@ public class MazeController : MonoBehaviour {
                     eastWall.GetComponent<Wall>().hp = -1;
                 }
             }
-            if (cellWalls[i].downWall)
+            if (cells[i].southWall)
             {
-                var downWall = Instantiate(
+                var southWall = Instantiate(
                             south,
                             spawnReference.GetComponent<Transform>().position + new Vector3(i * 2.5f, 1.5f, -length * 2.5f - 1.15f),
                             spawnReference.GetComponent<Transform>().rotation);
                 if (length == 1)    // first row of inner walls are indestructible
                 {
-                    downWall.GetComponent<Wall>().hp = -1;
+                    southWall.GetComponent<Wall>().hp = -1;
                 }
             }
 
@@ -196,12 +191,12 @@ public class MazeController : MonoBehaviour {
     {
         for (int i = 0; i < width - 1; i++)
         {
-            if (cellSet[i] != cellSet[i + 1] && cellWalls[i].rightWall)
+            if (cells[i].set != cells[i + 1].set && cells[i].eastWall)
             {
                 // Destroy walls separating disjoint sets
-                cellWalls[i].rightWall = false;
+                cells[i].eastWall = false;
                 Destroy(eastWalls[i]);  
-                unionSets(cellSet, i, i + 1);
+                unionSets(cells, i, i + 1);
             }
         }
 
@@ -216,27 +211,27 @@ public class MazeController : MonoBehaviour {
     }
 
     // Merges disjoint sets of the given i,j values
-    public static void unionSets(int[] arr, int i, int j)
+    public static void unionSets(Cell[] arr, int i, int j)
     {
         int replaceNum = -1;
         int replaceWith = -1;
 
-        if(arr[i] < arr[j])
+        if(arr[i].set < arr[j].set)
         {
-            replaceWith = arr[i];
-            replaceNum = arr[j];
+            replaceWith = arr[i].set;
+            replaceNum = arr[j].set;
         }
-        else if(arr[j] < arr[i])
+        else if(arr[j].set < arr[i].set)
         {
-            replaceWith = arr[j];
-            replaceNum = arr[i];
+            replaceWith = arr[j].set;
+            replaceNum = arr[i].set;
         }
 
         for (int k = 0; k < arr.Length; k++)
         {
-            if (arr[k] == replaceNum)
+            if (arr[k].set == replaceNum)
             {
-                arr[k] = replaceWith;
+                arr[k].set = replaceWith;
             }
         }
     }
@@ -244,6 +239,7 @@ public class MazeController : MonoBehaviour {
 
 public class Cell
 {
-    public bool downWall = false;
-    public bool rightWall = false;
+    public bool southWall = true;
+    public bool eastWall = false;
+    public int set = -1;
 }
