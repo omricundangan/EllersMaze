@@ -11,7 +11,7 @@ The player also possesses the ability to fire projectiles ('F'). Firing a projec
 <a name="implementation"></a>
 The maze is generated row by row using Eller's algorithm, as described on [this page](http://www.neocomputer.org/projects/eller.html), ensuring a simple/perfect maze that is always solvable. See [Assets/Scripts/MazeController.cs](https://github.com/dlrht/EllersMaze/blob/master/Assets/Scripts/MazeController.cs) for the C# code regarding the implementation.
 
-## Assets Used
+## Assets
 <a name="assets"></a>
 I used some assets from the store to slightly make the visuals more interesting, find them below:
 * [Low Poly Vegetation Pack](https://assetstore.unity.com/packages/3d/vegetation/lowpoly-vegetation-season-pack-lite-96083)
